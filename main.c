@@ -9,61 +9,42 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-// http://www.cs.cmu.edu/afs/cs/user/yachen/include/pwd.h
-// #include <pwd.h>
-// http://man7.org/linux/man-pages/man0/grp.h.0p.html
-// #include <grp.h>
+/* http://www.cs.cmu.edu/afs/cs/user/yachen/include/pwd.h */
+#include <pwd.h>
+/* http://man7.org/linux/man-pages/man0/grp.h.0p.html */
+#include <grp.h>
 
-#define MAX_FILESYS_SIZE 1024
-char active_filesys[MAX_FILESYS_SIZE] = "";
+#include "flags.h"
+#include "utils.h"
 
-int isdir(const char* path);
+#define MAXSIZE 1024
+#define BUFSIZE 256
 
-void catenater(int* marker, const char* datum);
+char active_filesys[MAXSIZE] = "";
 
-void printi(const char* path, const char* fname, int indent);
+void *getcwdir(void); 
+
+void bfs(char* node, char* fname, int indent, char* data);
+
+int isdir(char* path);
+
+void catenater(int* marker, char* datum);
+
+void printi(char* path, char* fname, int indent, char* data);
 
 void printe();
 
-void filesystem(const char* path, int indent);
+void filesystem(char* path, int indent, char* root);
 
 void helpme();
 
+/* MAIN ================================================================================== */
+/* ======================================================================================= */
 int main(int argc, char *argv[])
 {
-    int opth; // help
-    int optI; // set indent
-    int optL; // symbolic links
-    int optt; // print info
-    int optp; // print permission bits
-    int opti; // print number of links
-    int optu; // print file UID
-    int optg; // print file GID
-    int opts; // print file size
-    int optd; // show time of last mod
-    int optl; // print tpiugs info
-
-    int indent_convert;
-    char* indents;
-    char* dirname;
-
+    init();
     int it;
     int ch;
-
-    int opth = 0; 
-    int optI = 0; 
-    int optL = 0; 
-    int optt = 0; 
-    int optp = 0; 
-    int opti = 0; 
-    int optu = 0; 
-    int optg = 0; 
-    int opts = 0; 
-    int optd = 0; 
-    int optl = 0; 
-
-    indents = NULL;
-    dirname = NULL;
 
     while( (ch = getopt(argc,argv,"hI:Ltpiugsdl")) != -1 )
     {
@@ -72,18 +53,6 @@ int main(int argc, char *argv[])
             case 'h':
                 helpme();
                 return 0;
-            case 'I':
-                optI = 1;
-                indents = optarg;
-                if(indents != NULL)
-                {
-                    indent_convert = atoi(indents);
-                }
-                if(indents == NULL)
-                {
-                    return -1;
-                }
-                break;
             case 'L':
                 optL = 1;
                 break;
@@ -108,14 +77,14 @@ int main(int argc, char *argv[])
             case 'd':
                 optd = 1;
                 break;
-            case 'l':
-                optl = 1;
-                optt = 1; 
+            case 'l': 
                 optp = 1; 
                 opti = 1; 
                 optu = 1; 
                 optg = 1; 
-                opts = 1; 
+                opts = 1;  
+                optd = 1;
+                optt = 1; 
                 break;
             /* if getopt() finds      
                an option charact
@@ -130,16 +99,19 @@ int main(int argc, char *argv[])
                optopt to the act
                ual option char*/
             case '?': 
-                if(optopt = 'I')
-                {
-                    printf("dt: missing argument <n> number of indent spaces.\n");
-                    exit(0);
-                }
-                break;
+                printf("dt: error: invalid argument. refer to option -h.\n");
+                return 0;
         }
     }
     
+    initqueue();
     char cwd[PATH_MAX];
+    /* gets program root, th
+       at is, the name, only
+       the name, of the dire
+       ctory that houses the
+       program modules    */
+    char *root = getcwdir();
 
     if(argv[optind] != NULL)
     {
@@ -149,21 +121,84 @@ int main(int argc, char *argv[])
     {
        if(getcwd(cwd, sizeof(cwd)) != NULL)
        {
-           dirname = cwd;
+            dirname = cwd;
        } else {
-           perror("error");
-           exit(0);
+           perror("dt: error");
+           exit(EXIT_FAILURE);
        }
     }
-    //printf("dirname: %s", dirname);
 
-    filesystem(dirname, 0);
+    /* prints the root directory    */
+    printi(dirname, dirname, 0, root);
+    printe();
+    
+    /* traverses and queues in ho
+       wever many items are the n
+       ext nodes after root    */
+    filesystem(dirname, 0, root);
 
+    while(tail)
+    {
+        firstinline();
+        /* printf("fil is %s", queuedup); */
+        filesystem(queuedup, 0, root);
+        dequeue(queuedup);
+    }
+    
+
+    free(root);
     return 0;
 }
+/* END =================================================================================== */
 
 
-int isdir(const char* path)
+/* RETRIEVES ONLY THE NAME OF OUR CWD ==================================================== */
+/* ======================================================================================= */
+void *getcwdir(void)
+{
+    char *cwdir, *token;
+    char buffer[PATH_MAX + 1];
+    char *directory;
+    size_t length;
+
+    cwdir = getcwd(buffer, PATH_MAX + 1);
+    token = strrchr(cwdir, '/');
+
+    if(cwdir == NULL)
+    {
+        perror("dt: error"); 
+        exit(EXIT_FAILURE);
+    }
+
+    if (token == NULL)
+    {
+        perror("dt: error");
+        exit(EXIT_FAILURE);
+    }
+
+    length = strlen(token);
+    directory = malloc(length);
+    memcpy(directory, token+1, length);
+
+    return directory;
+}
+/* END =================================================================================== */
+
+
+/* BREADTHE FIRST SEARCH ================================================================= */
+/* ======================================================================================= */
+void bfs(char* node, char* fname, int indent, char* root)
+{
+    printf("BFS calls with: %s\n", node);
+
+
+}
+/* END =================================================================================== */
+
+
+/* CHECKS FOR DIRECTORY ================================================================== */
+/* ======================================================================================= */
+int isdir(char* path)
 {
     /* on linux, stat struct is defined as follows:
     dev_t     st_dev;      id of th file device
@@ -183,8 +218,12 @@ int isdir(const char* path)
         return S_ISDIR(stats.st_mode);
     }
 }
+/* END =================================================================================== */
 
-void catenater(int* marker, const char* datum)
+
+/* CATENATES DATA ======================================================================== */
+/* ======================================================================================= */
+void catenater(int* marker, char* datum)
 {
     int kickoff = *marker;
     for(; *marker < kickoff+strlen(datum); ++*marker)
@@ -193,8 +232,12 @@ void catenater(int* marker, const char* datum)
     }
     active_filesys[*marker + 1] = '\0';
 }
+/* END =================================================================================== */
 
-void printi(const char *path, const char *fname, int indent)
+
+/* CONTROLS WHICH DATA TO CATENATE ======================================================= */
+/* ======================================================================================= */
+void printi(char *path, char *fname, int indent, char* root)
 {
     int index;
 
@@ -208,57 +251,82 @@ void printi(const char *path, const char *fname, int indent)
     struct stat fstats;
 
     /* lstat() is equivalent to stat()
-       except that when path refers to
-       a symbolic link, lstat() will r
-       eturn info about the link    */
+       except that if path is a symbol
+       ic link, then the link itself i
+       s stat-ed, and not the file tha
+       t symbolic link refers to    */
+    /* stats the link pointed to by pa
+       th and fills in (fstats) buf */
     if(lstat (path, &fstats) == -1)
     {
         perror("dt: error");
         exit(EXIT_FAILURE);
     }
 
-    /* for loop includes indent properly */
-    for(index = 0; index < indent; ++index)
+    /* for loop includes path properly         
+    for(index = 0; index < strlen(root); ++index)
     {
-        active_filesys[index] = ' ';
+        active_filesys[index] = root[index];
     }
-
-    /* for loop appends the proper filename   */
-    for(; index < indent+strlen(fname); ++index)
+    */
+    
+    /*
+    if(isdir(path))
+    {
+        enqueue(path);
+        printf("DIR  ");
+    } else {
+        enqueue(fname);
+        printf("NOT DIR  ");
+    }
+    */
+    /*
+    active_filesys[index] = "/";
+    index = index + 1;
+    */
+    /* for loop appends the proper filename   
+    for(index = strlen(path); index < indent+strlen(fname); ++index)
     {
         active_filesys[index] = fname[index - indent];
     }
+ 
     active_filesys[index] = '\0';
+       */
 
-    /* S_IFMT bit mask for the file type bit
-       field. S_IFLNK symbolic link       */
-    if( (fstats.st_mode & S_IFMT) == S_IFLNK)
+    if(optL == 1)
     {
-        char symlink_ref[256];
-        const char* symlink_path = fname;
-        /* readlink places the contents of symlink_path in the symlink_ref, which
-           has a size of symlink_ref[256]. readlink() does not append a null byte
-           to symlink_ref. it will silently truncate the contents to a length of 
-           symlink_ref[256], in case the buffer is too small to hold contents  */
-        int bufsiz_len = readlink(symlink_path, symlink_ref, sizeof(symlink_ref));
-
-        /* on error, -1 is r
-           eturned and errno
-           is indicated   */
-        if(bufsiz_len == -1)
+        /* S_IFMT bit mask for the file type bit
+        field. S_IFLNK symbolic link       */
+        if( (fstats.st_mode & S_IFMT) == S_IFLNK)
         {
-            perror("dt: error");
-        /* on success, these calls return t
-           he num of bytes in symlink_ref*/
-        } else {
-            /* append null byte to ref   */
-            symlink_ref[bufsiz_len] = '\0';
-            catenater(&index, "symlink:");
-            catenater(&index, symlink_ref);
+            char symlink_ref[256];
+            const char* symlink_path = fname;
+            /* readlink places the contents of symlink_path in the symlink_ref, which
+            has a size of symlink_ref[256]. readlink() does not append a null byte
+            to symlink_ref. it will silently truncate the contents to a length of 
+            symlink_ref[256], in case the buffer is too small to hold contents  */
+            int bufsiz_len = readlink(symlink_path, symlink_ref, sizeof(symlink_ref));
+
+            /* on error, -1 is r
+            eturned and errno
+            is indicated   */
+            if(bufsiz_len == -1)
+            {
+                perror("dt: error");
+            /* on success, these calls return t
+            he num of bytes in symlink_ref*/
+            } else {
+                /* append null byte to ref   */
+                symlink_ref[bufsiz_len] = '\0';
+                catenater(&index, "symlink:");
+                catenater(&index, symlink_ref);
+            }
         }
     }
-    /* space the printed information prettily   */
-    for(int jindex = index; jindex < 42; ++jindex)
+
+    int jindex;
+    /* space the printed information prettily*/
+    for(jindex = index; jindex < 0; ++jindex)
     {
         catenater(&index, " ");
     }
@@ -340,7 +408,7 @@ void printi(const char *path, const char *fname, int indent)
             catenater(&index, "-");
         }
 
-        catenater(&index, "     ");
+        catenater(&index, "  ");
     }
 
     /* print the number of 
@@ -348,44 +416,62 @@ void printi(const char *path, const char *fname, int indent)
        ode table        */
     if(opti == 1)
     {
-        char charbuff[128];
+        char chabuff[128];
         /* string print the
            numlinks instead
            of printing on t
            he console. stor
            es output on cha
            r buffer      */
-        sprintf(charbuff, "%ld", fstats.st_nlink);
-        catenater(&index, charbuff);
-        catenater(&index, "     "); 
+        sprintf(chabuff, "%ld", fstats.st_nlink);
+        catenater(&index, chabuff);
+        catenater(&index, "  "); 
     }
 
+    /* print user
+       id associa
+       ted with t
+       he file */
     if(optu == 1)
     {
         struct passwd *pwd;
+        char uids[128];
 
         if( (pwd = getpwuid(fstats.st_uid)) == NULL)
         {
-            perror("dt: error");
+            sprintf(uids, "%ld", fstats.st_uid);
+            catenater(&index, uids);
+            catenater(&index, "  ");
         } else {
             catenater(&index, pwd->pw_name);
-            catenater(&index, "     ");
+            catenater(&index, "  ");
         }
     }
 
+    /* print grou
+       p id assoc
+       iated with
+       the file*/
     if(optg == 1)
     {
         struct group *grp;
+        char gids[128];
 
         if( (grp = getgrgid(fstats.st_gid)) == NULL)
         {
-            perror("dt: error");
+            sprintf(gids, "%ld", fstats.st_gid);
+            catenater(&index, gids);
+            catenater(&index, "  ");
         } else {
             catenater(&index, grp->gr_name);
-            catenater(&index, "     ");
+            catenater(&index, "  ");
         }
     }
 
+    /* print the
+       size of t
+       he file i
+       n bytes*/
     if(opts == 1)
     {
         const int bytesize = fstats.st_size;
@@ -394,21 +480,155 @@ void printi(const char *path, const char *fname, int indent)
            2^20 bytes = 1,048,576 bytes. 1 G
            B(G/GB) = 2^30 bytes = 1,073,741,
            824 bytes. these conversions   */
-    }
-}
+        int kilo = 1024;
+        int mega = 1048576;
+        int giga  = 1073741824;
 
+        char bs[kilo];
+        /* keep bytesize */
+        if(bytesize < kilo)
+        {
+            sprintf(bs, "%d", bytesize);
+            catenater(&index, bs);
+            if(bytesize >= 1000)
+            {
+                catenater(&index, " ");
+            }
+            else if(bytesize >= 100 && bytesize < 1000)
+            {
+                catenater(&index, "   "); 
+            }
+            else if(bytesize >= 10 && bytesize < 100)
+            {
+                catenater(&index, "    ");
+            } else {
+                catenater(&index, "     ");
+            }
+        }
+
+        /* proselytize to kilobytes              */
+        if(bytesize / kilo >= 1 && bytesize < mega)
+        {
+            sprintf(bs, "%dK", bytesize / kilo);
+            catenater(&index, bs);
+            if(bytesize / kilo >= 100 && bytesize / kilo < 1000)
+            {
+                catenater(&index, "  "); 
+            }
+            else if(bytesize / kilo >= 10 && bytesize / kilo < 100)
+            {
+                catenater(&index, "   "); 
+            } else {
+                catenater(&index, "    ");
+            }
+        }
+
+        /* proselytize to megabytes              */
+        if(bytesize / mega >= 1 && bytesize < giga)
+        {
+            sprintf(bs, "%dM", bytesize / mega);
+            catenater(&index, bs);
+            if(bytesize / mega >= 100 && bytesize / mega < 1000)
+            {
+                catenater(&index, "  "); 
+            }
+            else if(bytesize / mega >= 10 && bytesize / mega < 100)
+            {
+                catenater(&index, "   "); 
+            } else {
+                catenater(&index, "    ");
+            }
+        }
+
+        /* proselytize to gigabytes */
+        if( (bytesize / giga) >= 1)
+        {
+            sprintf(bs, "%dG", bytesize / giga);
+            catenater(&index, bs);
+            catenater(&index, "   "); 
+        }
+    }
+
+    /* show the t
+       ime of las
+       t mod   */
+    if(optd == 1)
+    {
+        /* read all file prop
+           erties of fname an
+           d dump them into f
+           stats buf struct*/
+        stat(fname, &fstats);
+        char date[17];
+        strftime(date, 17, "%b %d, %Y", gmtime(&(fstats.st_ctime)));
+        catenater(&index, date);
+        catenater(&index, "  ");
+    }
+
+    /*
+    if(optt == 1)
+    {
+        switch(fstats.st_mode & S_IFMT)
+        {
+
+            case S_IFBLK:
+                catenater(&index, "block special");
+                break;
+
+            case S_IFCHR:
+                catenater(&index, "character special");
+                break;
+            
+            case S_IFIFO:
+                catenater(&index, "FIFO special");
+                break;
+
+            case S_IFREG:
+                catenater(&index, "regular");
+                break;
+
+            case S_IFDIR:
+                catenater(&index, "directory");
+                break;
+
+            case S_IFLNK:
+                catenater(&index, "symbolic link");
+                break;   
+        }
+        catenater(&index, "     ");
+    }
+    */
+
+    /* loop appends the proper filename 
+    for(; index < indent+strlen(fname); ++index)
+    {
+        active_filesys[index] = fname[index - indent];
+    }
+    active_filesys[index] = '\0';
+    */
+    catenater(&index, path);
+}
+/* END =================================================================================== */
+
+
+/*  CREATES A NEWLINE FOR FURTHER DATA   ================================================= */
+/* ======================================================================================= */
 void printe()
 {
     int index;
 
     printf("%s\n", active_filesys);
-    for(index = 0; index < MAX_FILESYS_SIZE; ++index)
+    for(index = 0; index < MAXSIZE; ++index)
     {
         active_filesys[index] = 0;
     }
 }
+/* END =================================================================================== */
 
-void filesystem(const char* path, int indent)
+
+/* TRAVERSES THE DIRECTORY =============================================================== */
+/* ======================================================================================= */
+void filesystem(char* path, int indent, char* root)
 {
     /* on linux, dirent struct is defined as follows:    
     ino_t          d_ino;       inode number
@@ -425,34 +645,49 @@ void filesystem(const char* path, int indent)
         return;
     }
 
+    /* readdir() returns a pointer to a
+       dirent structure (de) representi
+       ng the next directory entry in t
+       he directory stream pointed to b
+       y (dr). it returns NULL on reach
+       ing the end of the directory str
+       eam or it an error occured    */
     while( (de = readdir(dr) ) != NULL)
     {
         if(isdir(path))
         {
             char pathn[1024];
+
+            /* if both of the parameters are equal, strcmp() returns int 0   */
             if(strcmp (de->d_name, ".") == 0 || strcmp (de->d_name, "..") == 0)
             {
                 continue;
             }
-            /* int snprintf(char *str, size_t size, const char *format, ...) */
+            /* formats and stores a series of characters and values in
+               the array buffer. so the buffer is [currently_working_n
+               ode/directory]                                       */
             snprintf(pathn, sizeof(pathn), "%s/%s", path, de->d_name);
-            printi(pathn, de->d_name, indent);
+            
+            printi(pathn, de->d_name, indent, root);
             printe();
-            /* recursive call to filesystem func   */
-            filesystem(pathn, indent+indent_convert);
+            enqueue(pathn);
+
         } else {
-            printi(de->d_name, de->d_name, indent);
+            printi(de->d_name, de->d_name, indent, root);
             printe();
         }
-    }
+    }   
 closedir(dr);
 }
+/* END =================================================================================== */
 
+
+/* SHOWS HELP MENU======================================================================== */
+/* ======================================================================================= */
 void helpme()
 {
     printf("\n|HELP|MENU|");
     printf("\t-h : display help menu\n");
-    printf("\t-I <n> : change indentation to <n> spaces for each level\n");
     printf("\t-L : follow symbolic links, if any. default does not follow symbolic links\n");
     printf("\t-t : print information on file type\n");
     printf("\t-p : print permission bits\n");
@@ -463,3 +698,5 @@ void helpme()
     printf("\t-d : show the time of last modification\n");
     printf("\t-l : print information on file as if options t p i u g s are all specified\n");
 }
+/* END =================================================================================== */
+/* END =================================================================================== */

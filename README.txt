@@ -1,23 +1,86 @@
-Purpose:
-	The purpose of this program is to familiarize 
-    yourself with using getopt and perror while p
-    racticing system calls.
+INTRODUCTION
+------------
 
-How to Run:	
-	make		//to compile
-	
-	./dt <opt> [../filename]
-	File name must be given in ../filename format or it won't be recognized as a directory
-	./dt -h		//to print the help message
-	./dt -I n	//to change indentation to n spaces for each level
-	./dt -L		//to follow any symbolic links
-	./dt -t		//to print information on file type
-	./dt -p		//to print permission bits as rwxrwxrwx
-	./dt -i		//to print the number of links to file in inode table
-	./dt -u		//to print the UID associated with the file
-	./dt -g		//to print the GID associated with the file
-	./dt -s		//to print the size of the file in bytes
-	./dt -d		//to show the time of the last modification
-	./dt -l		//to print information on the file as if the options tpiugs are all specified
+The System Calls and Library Functions module dis
+plays a traversed directory in breadth-first orde
+r. The directory is specified by user, and defaul
+ts to user's Current Working Directory (CWD). The
+program itself is invoked using the linux Command
+Line Interface (CLI), by which a user may specify
+several unique options each of which performs its
+intended function on the traversed directory, spe
+cified by CLI input.
 
-	make clean	//to remove all the object and executable files 
+ * For a full description of the module, visit th
+   e project page of CS4760: Operating Systems at:
+   http://www.cs.umsl.edu/~sanjiv/classes/cs4760/
+
+ * To submit bug reports and feature suggestions o
+   r track changes visit:
+   https://github.com/Keenandrea?tab=repositories
+
+
+REQUIREMENTS
+------------
+
+This module requires the following:
+
+ * Hoare Linux (http://www.umsl.edu/technology/tsc/)
+ * UMSL ID (https://www.umsl.edu/degrees/index.html)
+
+
+INSTALLATION
+------------
+
+ * Install as you would normally install a distrib
+   uted C module. To compile and execute, you must
+   have the build-essential packages properly inst
+   alled on your system. 
+
+
+COMPILATION
+-----------
+
+To compile, open a new CLI window, change the the
+directory nesting your module. Type:
+
+ * make
+
+
+EXECUTION
+---------
+																								 
+Find the executable named bt, located inside that
+directory in which you compiled the module. After
+you have found bt, invoke the program with:
+
+ * bt [-h] [-L -d -g -i -p -s -t -u | -l] [dirname]
+ 
+ * The options are to be interpreted as follows:
+ 
+  * h Print a help message and exit.											
+  * L Follow symbolic links, if any. Default will
+    be to not follow symbolic links.
+  * t Print information on file type.
+  * p Print permission bits as rwxrwxrwx.												
+  * i Print the number of links to file in the in
+    ode table.
+  * u Print the UID associated with the file.
+  * g Print the GID associated with the file.
+  * s Print the size of file in bytes.
+  * d Show the time of last modification.
+  * l This option will be used to print informati
+    on on the file as if the options tpiugs are a
+	ll specified
+
+
+MAINTAINERS
+-----------
+
+Current maintainers:
+ * Keenan Andrea - https://github.com/Keenandrea
+
+This project has been sponsored by:
+ * UMSL Mathematics and Computer Science 
+   Specialized in bringing young minds to graduat
+   ion with the skills needed. 
